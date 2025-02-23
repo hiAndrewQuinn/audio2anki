@@ -1,0 +1,10 @@
+cached-property==2.0.1
+chevron==0.14.0
+click==8.1.8
+dotenv==0.9.9
+frozendict==2.4.6
+genanki==0.13.1
+pydub==0.25.1
+python-dotenv==1.0.1
+PyYAML==6.0.2
+tqdm==4.67.1

@@ -169,3 +169,16 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+##############################################################################
+#
+# Project specific ignores.
+
+# Obviously we don't want to add in our mp3 files.
+*.mp3
+
+# We don't want to accidentally commit any .apkg files, either.
+*.apkg
+
+# ... or any of the .tsv files, either.
+*.tsv
