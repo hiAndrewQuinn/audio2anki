@@ -209,7 +209,7 @@ def main(
                 confirm = True
             if confirm:
                 click.echo(
-                    "Generating transcript with Whisper. This may take a while..."
+                    "Generating transcript with Whisper. This may take a while...."
                 )
                 # Check that the 'whisper' command exists before trying to run it.
                 whisper_cmd = shutil.which("whisper")
@@ -220,6 +220,9 @@ def main(
                     )
                     return
 
+                click.echo(
+                    "If you see a downloading bar appear, it means Whisper is downloading its speech-to-text model. This should only happen once."
+                )
                 # Build the whisper command.
                 cmd = [
                     whisper_cmd,
