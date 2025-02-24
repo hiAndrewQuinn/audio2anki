@@ -173,6 +173,21 @@ Alternatively, you can work with a **local audio file** along with an optional t
   - Prompts the user or automatically generates a transcript using Whisper if no valid transcript is found.
   - Uses the local audio and transcript files for deck creation.
 
+### Options
+
+#### `--slow`, `--slower`, `--slowest`: Reduce the audio playback speed
+
+As of [commit `0dbbb3e`](https://github.com/hiAndrewQuinn/audio2anki/commit/0dbbb3eafbdb89812e65a6fe75156d1ebc7fbf82), `audio2anki` now allows the use to render the Anki flashcard audio at
+
+- 0.75x speed, with `--slow`;
+- 0.5x speed, with `--slower`; and
+- 0.25x speed, with `--slowest`. (This really is *quite slow*!)
+
+`--slowest` > `--slower` > `--slow` in terms of flag overriding. 
+
+Do note that the sound unavoidably gets more altered and echo-ey the more you slow it down, even though the pitch stays the same -- that's just how the math works.
+
+
 ## Docker Support (WIP)
 
 **Note:** The provided `Dockerfile` is still a work in progress and **does not currently work**. For now, please run the tool using your local Python environment as described above.
