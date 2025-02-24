@@ -9,6 +9,7 @@ import subprocess
 import shutil
 from io import BytesIO
 from pydub import AudioSegment
+from pydub.generators import Sine  # Import for generating click tones
 from tqdm import tqdm
 import genanki
 from dotenv import load_dotenv
@@ -368,10 +369,20 @@ def main(
             continue
 
         text = row["text"]
-        # Extend the end by 1 second (1000 ms) without exceeding the audio length,
-        # and apply a fade out over the final 500 ms.
+        # Extend the end by 1 second (1000 ms) without exceeding the audio length.
         extended_end = min(len(audio), end_ms + 1000)
-        clip = audio[start_ms:extended_end].fade_out(1000)
+
+        # If there's at least 1 second of audio before the segment, include it and apply fade in.
+        if start_ms >= 1000:
+            new_start = start_ms - 1000
+            clip = audio[new_start:extended_end].fade_in(1000).fade_out(1000)
+        else:
+            clip = audio[start_ms:extended_end].fade_out(1000)
+
+        # Generate a 50 ms click tone at a medium frequency (e.g., 1000 Hz).
+        click_tone = Sine(1000).to_audio_segment(duration=50)
+        # Prepend and append the click tone.
+        clip = click_tone + clip + click_tone
 
         # Export the clip to a buffer, hash its data, and create a unique filename.
         buf = BytesIO()
