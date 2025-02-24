@@ -13,6 +13,8 @@ from pydub.generators import Sine  # Import for generating click tones
 from tqdm import tqdm
 import genanki
 from dotenv import load_dotenv
+import librosa
+import numpy as np
 
 # Load environment variables from a .env file if present.
 load_dotenv()
@@ -55,6 +57,16 @@ load_dotenv()
     default=None,
     help="YouTube URL to download MP3 from. Overrides all other options.",
 )
+# Added options for playback speed adjustments.
+@click.option(
+    "--slow", is_flag=True, default=False, help="Export audio at 0.75x speed."
+)
+@click.option(
+    "--slower", is_flag=True, default=False, help="Export audio at 0.5x speed."
+)
+@click.option(
+    "--slowest", is_flag=True, default=False, help="Export audio at 0.25x speed."
+)
 def main(
     audio_file,
     tsv_file,
@@ -65,6 +77,9 @@ def main(
     whisper,
     whisper_model,
     youtube,
+    slow,
+    slower,
+    slowest,
 ):
     """
     Generate an Anki package (.apkg) from an MP3 file and a Whisper-generated TSV transcript.
@@ -78,6 +93,15 @@ def main(
     from the YouTube URL into the youtube/ directory. In this mode, AUDIO_FILE and TSV_FILE are not required.
     After download, the pipeline continues with transcript generation and Anki package creation.
     """
+    # Determine playback speed factor.
+    speed_factor = 1.0
+    if slowest:
+        speed_factor = 0.25
+    elif slower:
+        speed_factor = 0.5
+    elif slow:
+        speed_factor = 0.75
+
     # If --youtube is provided, override audio_file and tsv_file.
     if youtube:
         click.echo("YouTube URL provided. Overriding all other options.")
@@ -89,18 +113,14 @@ def main(
             )
             return
 
-        # Update yt-dlp to the latest version.
         click.echo("Updating yt-dlp...")
         try:
             subprocess.run([yt_dlp_path, "-U"], check=True)
         except subprocess.CalledProcessError:
             click.echo("Warning: yt-dlp update failed.", err=True)
 
-        # Ensure output directory exists.
         youtube_dir = "youtube"
         os.makedirs(youtube_dir, exist_ok=True)
-
-        # Build the download command.
         cmd = [
             yt_dlp_path,
             "-f",
@@ -113,7 +133,6 @@ def main(
         if browser:
             cmd.extend(["--cookies-from-browser", browser])
         cmd.extend(["-o", os.path.join(youtube_dir, "%(title)s.%(ext)s"), youtube])
-
         click.echo("Downloading MP3 from YouTube...")
         try:
             subprocess.run(cmd, check=True)
@@ -121,8 +140,6 @@ def main(
             click.echo("Error: Downloading MP3 from YouTube failed.", err=True)
             return
         click.echo("Download complete.")
-
-        # Find the most recent MP3 file in the youtube directory.
         mp3_files = [
             os.path.join(youtube_dir, f)
             for f in os.listdir(youtube_dir)
@@ -155,28 +172,24 @@ def main(
 
     # Determine which transcript to use.
     transcript_to_use = None
-    # If a transcript file argument is provided and not forcing whisper, use it directly.
     if tsv_file and not whisper:
         transcript_to_use = tsv_file
     else:
-        # Construct the expected transcript filename based on the audio file's basename.
         base = os.path.basename(audio_file)
         name, _ = os.path.splitext(base)
         expected_tsv = os.path.join(transcripts_dir, f"{name}.tsv")
         if os.path.exists(expected_tsv):
-            # Basic check: does the last segment cover at least 80% of the audio length?
             try:
                 with open(expected_tsv, newline="", encoding="utf-8") as f:
                     reader = csv.DictReader(f, delimiter="\t")
-                    rows = list(reader)
-                if rows:
-                    last_row = rows[-1]
+                    temp_rows = list(reader)
+                if temp_rows:
+                    last_row = temp_rows[-1]
                     last_end = int(float(last_row.get("end", "0")))
                     if last_end < 0.8 * audio_length:
                         click.echo(
                             "Warning: Existing transcript seems to cover less than 80% of the audio length."
                         )
-                        # If in YouTube mode, assume transcript generation is desired.
                         if youtube:
                             confirm = True
                         elif not whisper:
@@ -196,9 +209,7 @@ def main(
                 click.echo(f"Error reading existing transcript: {e}")
                 transcript_to_use = None
 
-        # If no valid transcript was found or if forcing Whisper, then generate one.
         if transcript_to_use is None or whisper:
-            # In YouTube mode, automatically generate transcript.
             if youtube:
                 confirm = True
             elif not whisper:
@@ -212,7 +223,6 @@ def main(
                 click.echo(
                     "Generating transcript with Whisper. This may take a while...."
                 )
-                # Check that the 'whisper' command exists before trying to run it.
                 whisper_cmd = shutil.which("whisper")
                 if whisper_cmd is None:
                     click.echo(
@@ -224,7 +234,6 @@ def main(
                 click.echo(
                     "If you see a downloading bar appear, it means Whisper is downloading its speech-to-text model. This should only happen once."
                 )
-                # Build the whisper command.
                 cmd = [
                     whisper_cmd,
                     audio_file,
@@ -258,7 +267,33 @@ def main(
 
     click.echo(f"Using transcript: {transcript_to_use}")
 
-    # Generate deck name if not provided.
+    # Process the transcript TSV rows.
+    with open(transcript_to_use, newline="", encoding="utf-8") as tsvfile:
+        reader = csv.DictReader(tsvfile, delimiter="\t")
+        rows = list(reader)
+
+    def is_complete_sentence(text):
+        text = text.strip()
+        return text.endswith(".") or text.endswith("!") or text.endswith("?")
+
+    merged_rows = []
+    i = 0
+    while i < len(rows):
+        current = rows[i]
+        merged_start = current["start"]
+        merged_end = current["end"]
+        merged_text = current["text"].strip()
+        while not is_complete_sentence(merged_text) and (i + 1) < len(rows):
+            next_row = rows[i + 1]
+            merged_end = next_row["end"]
+            merged_text += " " + next_row["text"].strip()
+            i += 1
+        merged_rows.append(
+            {"start": merged_start, "end": merged_end, "text": merged_text}
+        )
+        i += 1
+    rows = merged_rows
+
     if deck_name:
         deck_title = deck_name
     else:
@@ -267,11 +302,9 @@ def main(
         name = name.replace("_", " ").replace("-", " ")
         deck_title = f"audio2anki:: {name}"
 
-    # Generate unique IDs for deck and model.
     deck_id = random.randrange(1 << 30, 1 << 31)
     model_id = random.randrange(1 << 30, 1 << 31)
 
-    # Custom CSS for the card.
     css = """
 .card {
   font-family: Arial, sans-serif;
@@ -288,7 +321,6 @@ def main(
 .english-text {
   margin-top: 10px;
 }
-
 .notes {
   margin-top: 10px;
   font-size: 70%;
@@ -296,7 +328,6 @@ def main(
 }
 """
 
-    # Create a model with four fields.
     my_model = genanki.Model(
         model_id,
         "Audio2Anki Model",
@@ -323,43 +354,49 @@ def main(
         css=css,
     )
 
-    # Create the deck.
     my_deck = genanki.Deck(deck_id, deck_title)
 
-    # Process the transcript TSV rows.
-    with open(transcript_to_use, newline="", encoding="utf-8") as tsvfile:
-        reader = csv.DictReader(tsvfile, delimiter="\t")
-        rows = list(reader)
+    def change_speed_librosa(sound, speed=1.0):
+        """
+        Use librosa to time-stretch the audio while preserving pitch.
+        Convert the AudioSegment to a numpy array, apply time stretching,
+        and then convert it back to an AudioSegment.
+        """
+        # Convert AudioSegment to numpy array.
+        samples = np.array(sound.get_array_of_samples())
+        if sound.channels == 2:
+            samples = samples.reshape((-1, 2)).T
+        else:
+            samples = samples.astype(np.float32)
+        samples = samples.astype(np.float32)
+        if sound.sample_width == 2:
+            norm_factor = 2**15
+        elif sound.sample_width == 4:
+            norm_factor = 2**31
+        else:
+            norm_factor = float(1 << (8 * sound.sample_width - 1))
+        samples = samples / norm_factor
 
-    # Preprocessing: Stitch together consecutive segments if the text does not end with a full sentence.
-    def is_complete_sentence(text):
-        text = text.strip()
-        # Check for a period, exclamation mark, or question mark at the end.
-        return text.endswith(".") or text.endswith("!") or text.endswith("?")
+        # Process each channel separately if stereo.
+        if sound.channels == 2:
+            y_stretched_left = librosa.effects.time_stretch(y=samples[0], rate=speed)
+            y_stretched_right = librosa.effects.time_stretch(y=samples[1], rate=speed)
+            y_stretched = np.vstack((y_stretched_left, y_stretched_right))
+            y_stretched = y_stretched.T.flatten()
+        else:
+            y_stretched = librosa.effects.time_stretch(y=samples, rate=speed)
 
-    merged_rows = []
-    i = 0
-    while i < len(rows):
-        current = rows[i]
-        merged_start = current["start"]
-        merged_end = current["end"]
-        merged_text = current["text"].strip()
-
-        # Merge subsequent rows if the current text doesn't end with a sentence terminator.
-        while not is_complete_sentence(merged_text) and (i + 1) < len(rows):
-            next_row = rows[i + 1]
-            merged_end = next_row["end"]
-            merged_text += " " + next_row["text"].strip()
-            i += 1
-        merged_rows.append(
-            {"start": merged_start, "end": merged_end, "text": merged_text}
+        y_stretched = np.clip(y_stretched * norm_factor, -norm_factor, norm_factor - 1)
+        y_stretched = y_stretched.astype(np.int16)
+        new_sound = AudioSegment(
+            y_stretched.tobytes(),
+            frame_rate=sound.frame_rate,
+            sample_width=sound.sample_width,
+            channels=sound.channels,
         )
-        i += 1
+        return new_sound
 
-    # Replace rows with the stitched version.
-    rows = merged_rows
-
-    click.echo(f"Processing {len(rows)} segments...")
+    click.echo("Processing {} segments...".format(len(rows)))
     for row in tqdm(rows, desc="Processing segments", unit="segment"):
         try:
             start_ms = int(float(row["start"]))
@@ -369,22 +406,20 @@ def main(
             continue
 
         text = row["text"]
-        # Extend the end by 1 second (1000 ms) without exceeding the audio length.
         extended_end = min(len(audio), end_ms + 1000)
 
-        # If there's at least 1 second of audio before the segment, include it and apply fade in.
         if start_ms >= 1000:
             new_start = start_ms - 1000
             clip = audio[new_start:extended_end].fade_in(1000).fade_out(1000)
         else:
             clip = audio[start_ms:extended_end].fade_out(1000)
 
-        # Generate a 50 ms click tone at a medium frequency (e.g., 1000 Hz).
         click_tone = Sine(1000).to_audio_segment(duration=50)
-        # Prepend and append the click tone.
         clip = click_tone + clip + click_tone
 
-        # Export the clip to a buffer, hash its data, and create a unique filename.
+        if speed_factor != 1.0:
+            clip = change_speed_librosa(clip, speed_factor)
+
         buf = BytesIO()
         clip.export(buf, format="mp3")
         clip_data = buf.getvalue()
@@ -406,7 +441,6 @@ def main(
         )
         my_deck.add_note(note)
 
-    # Gather media files (all .mp3 clips).
     media_files = [
         os.path.join(audio_dir, file)
         for file in sorted(os.listdir(audio_dir))
