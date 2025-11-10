@@ -170,6 +170,15 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# direnv
+.direnv
+
+# nix
+result/
+
+# idea
+.idea/
+
 ##############################################################################
 #
 # Project specific ignores.
