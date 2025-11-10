@@ -29,7 +29,12 @@
         pyproject = true;
         build-system = [ pkgs.python3Packages.setuptools ];
         propagatedBuildInputs = pythonPackages;
-        buildInputs = [ pkgs.ffmpeg-full pkgs.yt-dlp ];
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postInstall = ''
+          wrapProgram $out/bin/audio2anki \
+            --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.ffmpeg-full pkgs.yt-dlp ]} \
+            --set FFMPEG_BINARY ${pkgs.ffmpeg-full}/bin/ffmpeg
+        '';
       };
     });
 
