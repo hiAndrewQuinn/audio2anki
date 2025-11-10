@@ -17,6 +17,7 @@
         frozendict
         genanki
         librosa
+        openai-whisper
         pydub
         pyyaml
         tqdm
@@ -48,6 +49,7 @@
         frozendict
         genanki
         librosa
+        openai-whisper
         pydub
         pyyaml
         tqdm
