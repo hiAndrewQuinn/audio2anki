@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "audio2anki"
+version = "0.1.0"
+dependencies = [
+  "cached-property",
+  "chevron",
+  "click",
+  "python-dotenv",
+  "frozendict",
+  "genanki",
+  "librosa",
+  "pydub",
+  "PyYAML",
+  "tqdm",
+]
+
+[project.scripts]
+audio2anki = "main:main"
