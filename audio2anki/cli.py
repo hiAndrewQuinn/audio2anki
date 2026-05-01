@@ -588,7 +588,18 @@ def main(
     package.media_files = media_files
     package.write_to_file(output_file)
 
-    click.echo(f"Generated Anki package: {output_file}")
+    abs_output = os.path.abspath(output_file)
+    click.echo()
+    click.secho(f"Done! Anki deck written to:\n  {abs_output}", fg="green", bold=True)
+    click.secho(
+        "\nTo import: open Anki, then File > Import (Ctrl+I / Cmd+I) and select "
+        "the .apkg above. On most systems double-clicking the file also works.",
+        fg="green",
+    )
+    click.secho(
+        "\nThanks for using audio2anki, by @hiAndrewQuinn!",
+        fg="green",
+    )
 
 
 if __name__ == "__main__":
