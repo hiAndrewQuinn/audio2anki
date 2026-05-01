@@ -19,9 +19,9 @@ RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o 
 # Install latest OpenAI Whisper.
 RUN pip install git+https://github.com/openai/whisper.git
 
-# Upgrade pip and install Python dependencies.
+# Upgrade pip and install the audio2anki package (deps come from pyproject.toml).
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+    pip install .
 
 # Pre-download the Whisper model ("turbo") so it doesn't redownload on container start.
 RUN python -c "import whisper; whisper.load_model('turbo')"
@@ -30,4 +30,4 @@ RUN python -c "import whisper; whisper.load_model('turbo')"
 VOLUME ["/app/clips", "/app/transcripts", "/app/youtube"]
 
 # Set the entrypoint to run your CLI program.
-ENTRYPOINT ["python", "main.py"]
+ENTRYPOINT ["audio2anki"]
