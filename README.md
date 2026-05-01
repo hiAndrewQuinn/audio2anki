@@ -50,9 +50,9 @@ The first run will download the Whisper model (~1.5 GB for the default `turbo` m
 
 ## YouTube notes
 
-YouTube periodically breaks `yt-dlp`'s default extraction with their "n-challenge" signature scheme. audio2anki tries the default player client first, then falls back through `tv → ios → web_safari → android_vr → mweb`. If everything fails, it prints the `--list-formats` output for diagnosis.
+YouTube uses a JavaScript "n-challenge" signature scheme that `yt-dlp` needs a JS runtime to solve. audio2anki **auto-downloads [Deno](https://deno.land/) on first YouTube use** (~35MB, cached at `~/.cache/audio2anki/deno`) so this just works — no manual install. If you already have `deno` on `$PATH`, that one is used instead.
 
-If you regularly hit n-challenge failures, install [Deno](https://deno.land/) — `yt-dlp` will pick it up as a JavaScript runtime and solve the challenge automatically.
+Beyond that, audio2anki tries the default player client first and then falls back through `tv → ios → web_safari → android_vr → mweb` if YouTube has broken the default extraction path for that client. If every client fails, it prints `--list-formats` output for diagnosis.
 
 For age-gated or subscription videos, set `BROWSER=firefox` (or `chrome`, `chromium`, etc.) in a `.env` file in your working directory. `yt-dlp` will pull cookies from that browser.
 

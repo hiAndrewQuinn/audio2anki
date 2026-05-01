@@ -3,11 +3,16 @@
 import click
 import csv
 import os
+import platform
 import random
 import hashlib
+import stat
 import subprocess
 import shutil
+import urllib.request
+import zipfile
 from io import BytesIO
+from pathlib import Path
 from pydub import AudioSegment
 from pydub.generators import Sine  # Import for generating click tones
 from tqdm import tqdm
@@ -15,6 +20,7 @@ import genanki
 from dotenv import load_dotenv
 import librosa
 import numpy as np
+from platformdirs import user_cache_dir
 
 # Load environment variables from a .env file if present.
 load_dotenv()
@@ -22,6 +28,61 @@ load_dotenv()
 
 def _looks_like_url(value):
     return isinstance(value, str) and value.startswith(("http://", "https://"))
+
+
+# Map (system, machine) -> Deno release asset name. Keys use the values
+# returned by platform.system().lower() and platform.machine().lower().
+_DENO_ASSETS = {
+    ("linux", "x86_64"): "deno-x86_64-unknown-linux-gnu.zip",
+    ("linux", "amd64"): "deno-x86_64-unknown-linux-gnu.zip",
+    ("linux", "aarch64"): "deno-aarch64-unknown-linux-gnu.zip",
+    ("linux", "arm64"): "deno-aarch64-unknown-linux-gnu.zip",
+    ("darwin", "x86_64"): "deno-x86_64-apple-darwin.zip",
+    ("darwin", "arm64"): "deno-aarch64-apple-darwin.zip",
+    ("darwin", "aarch64"): "deno-aarch64-apple-darwin.zip",
+    ("windows", "x86_64"): "deno-x86_64-pc-windows-msvc.zip",
+    ("windows", "amd64"): "deno-x86_64-pc-windows-msvc.zip",
+}
+
+
+def _ensure_deno():
+    """Return a path to a deno binary, downloading to the user cache if needed.
+
+    yt-dlp uses deno to solve YouTube's "n-challenge" JavaScript signatures.
+    Without it, most current YouTube videos fall back to image-only formats.
+    Returns None if the platform is unsupported (caller should warn).
+    """
+    on_path = shutil.which("deno")
+    if on_path:
+        return on_path
+
+    cache_dir = Path(user_cache_dir("audio2anki"))
+    binary_name = "deno.exe" if platform.system().lower() == "windows" else "deno"
+    deno_path = cache_dir / binary_name
+    if deno_path.exists():
+        return str(deno_path)
+
+    asset = _DENO_ASSETS.get((platform.system().lower(), platform.machine().lower()))
+    if asset is None:
+        return None
+
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    url = f"https://github.com/denoland/deno/releases/latest/download/{asset}"
+    click.echo(
+        "Deno not found. Downloading it once (~35MB) to "
+        f"{cache_dir} so yt-dlp can solve YouTube JS challenges..."
+    )
+    zip_path = cache_dir / asset
+    try:
+        urllib.request.urlretrieve(url, zip_path)
+        with zipfile.ZipFile(zip_path) as z:
+            z.extractall(cache_dir)
+    finally:
+        if zip_path.exists():
+            zip_path.unlink()
+    deno_path.chmod(deno_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    click.echo(f"Deno installed at {deno_path}.")
+    return str(deno_path)
 
 
 @click.command()
@@ -135,6 +196,15 @@ def main(
         os.makedirs(youtube_dir, exist_ok=True)
         browser = os.getenv("BROWSER")
 
+        deno_path = _ensure_deno()
+        if deno_path is None:
+            click.echo(
+                "Warning: Could not auto-install deno on this platform. "
+                "YouTube downloads may fail on the n-challenge. Install deno from "
+                "https://deno.land/ to fix this.",
+                err=True,
+            )
+
         # YouTube periodically breaks the default extraction path (the "n challenge"
         # signature scrambling). Alternate player clients use different signature
         # schemes and often still work when the default fails. Try the default first,
@@ -150,6 +220,8 @@ def main(
                 "--audio-format",
                 "mp3",
             ]
+            if deno_path:
+                cmd.extend(["--js-runtimes", f"deno:{deno_path}"])
             if browser:
                 cmd.extend(["--cookies-from-browser", browser])
             if player_client:
@@ -185,6 +257,8 @@ def main(
                 err=True,
             )
             list_cmd = [yt_dlp_path, "--list-formats"]
+            if deno_path:
+                list_cmd.extend(["--js-runtimes", f"deno:{deno_path}"])
             if browser:
                 list_cmd.extend(["--cookies-from-browser", browser])
             list_cmd.append(youtube)
