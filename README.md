@@ -8,13 +8,15 @@ Useful for language learners, podcast students, or anyone who wants to study aud
 
 ## Install
 
-You need [`uv`](https://docs.astral.sh/uv/) and `ffmpeg` on your system. Then:
+You only need [`uv`](https://docs.astral.sh/uv/). Then:
 
 ```bash
 uv tool install --with openai-whisper "audio2anki @ git+https://github.com/hiAndrewQuinn/audio2anki"
 ```
 
-That's it. `audio2anki` is now on your `$PATH` from any directory, and bundles its own `yt-dlp` and `openai-whisper`.
+That's it. `audio2anki` is now on your `$PATH` from any directory and bundles **everything** it needs: `yt-dlp`, `openai-whisper`, plus auto-downloads of `ffmpeg`/`ffprobe` and a JavaScript runtime (`deno`) on first use. No system-level prereqs beyond `uv` itself.
+
+Bundled binaries are preferred over any system installs of the same tools, so behavior stays consistent across machines.
 
 ## Use
 
@@ -33,7 +35,11 @@ The `.apkg` lands in your current directory. Language is auto-detected, so you'l
 
 ![image](https://github.com/user-attachments/assets/6c5c7d77-dd03-4a76-ad55-36d5fb198861)
 
-The first run will download the Whisper model (~1.5 GB for the default `turbo` model) and cache it for next time.
+First-run downloads (cached afterward, all done automatically):
+
+- Whisper model (~1.5 GB for the default `turbo` model)
+- `ffmpeg` + `ffprobe` v8 (~50 MB, via `static-ffmpeg`)
+- `deno` (~35 MB, only if you use a YouTube URL)
 
 ## Options
 

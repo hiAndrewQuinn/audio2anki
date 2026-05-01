@@ -15,6 +15,7 @@ dependencies = [
     "librosa>=0.10",
     "numpy>=1.24",
     "yt-dlp>=2024.0",
+    "static-ffmpeg>=2.0",
 ]
 
 [project.optional-dependencies]

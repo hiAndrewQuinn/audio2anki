@@ -9,12 +9,22 @@ import hashlib
 import stat
 import subprocess
 import shutil
+import sys
 import urllib.request
+import warnings
 import zipfile
 from io import BytesIO
 from pathlib import Path
-from pydub import AudioSegment
-from pydub.generators import Sine  # Import for generating click tones
+
+# pydub probes for ffmpeg at import and warns if missing. We set the path
+# explicitly later via static-ffmpeg, so suppress the noisy import-time warning.
+with warnings.catch_warnings():
+    warnings.filterwarnings(
+        "ignore", message="Couldn't find ffmpeg or avconv", category=RuntimeWarning
+    )
+    from pydub import AudioSegment
+    from pydub.generators import Sine
+
 from tqdm import tqdm
 import genanki
 from dotenv import load_dotenv
@@ -28,6 +38,57 @@ load_dotenv()
 
 def _looks_like_url(value):
     return isinstance(value, str) and value.startswith(("http://", "https://"))
+
+
+def _venv_bin_path(name):
+    """Return the path to a binary installed alongside our Python, if present.
+
+    When audio2anki is launched via `uv tool install`, sys.executable points at
+    the tool's isolated venv and dependencies' console_scripts (yt-dlp, whisper)
+    live next to it. Resolving from there avoids accidentally picking up an
+    older system-wide install of the same tool.
+    """
+    venv_bin = os.path.dirname(sys.executable)
+    suffix = ".exe" if platform.system().lower() == "windows" else ""
+    candidate = os.path.join(venv_bin, name + suffix)
+    return candidate if os.path.exists(candidate) else None
+
+
+def _resolve_yt_dlp():
+    return _venv_bin_path("yt-dlp") or shutil.which("yt-dlp")
+
+
+def _resolve_whisper():
+    return _venv_bin_path("whisper") or shutil.which("whisper")
+
+
+def _setup_ffmpeg():
+    """Ensure ffmpeg + ffprobe are available, preferring the bundled copies.
+
+    static_ffmpeg.add_paths() lazily downloads its binaries on first call
+    (~50MB total for ffmpeg+ffprobe), then prepends their dir to
+    os.environ['PATH']. Because the static-ffmpeg dir is prepended, our
+    bundled versions win over any system install — matching the policy
+    we use for yt-dlp and whisper. Subsequent subprocess calls (yt-dlp,
+    whisper, pydub) all pick up the bundled binaries via PATH lookup.
+
+    Returns the path to ffmpeg, or None if setup failed entirely.
+    """
+    try:
+        import static_ffmpeg
+
+        static_ffmpeg.add_paths()
+    except Exception as e:
+        click.echo(
+            f"Warning: bundled ffmpeg setup failed ({e}). Falling back to system PATH.",
+            err=True,
+        )
+
+    ffmpeg_path = shutil.which("ffmpeg")
+    if ffmpeg_path:
+        AudioSegment.converter = ffmpeg_path
+        AudioSegment.ffmpeg = ffmpeg_path
+    return ffmpeg_path
 
 
 # Map (system, machine) -> Deno release asset name. Keys use the values
@@ -169,6 +230,10 @@ def main(
     elif slow:
         speed_factor = 0.75
 
+    # Wire up ffmpeg + ffprobe before pydub touches anything. Bundled binaries
+    # win over system because static_ffmpeg.add_paths() prepends to PATH.
+    ffmpeg_path = _setup_ffmpeg()
+
     # Allow a URL to be passed as the AUDIO_FILE positional, routing into the
     # YouTube branch automatically. Explicit --youtube takes precedence.
     if not youtube and _looks_like_url(audio_file):
@@ -178,10 +243,11 @@ def main(
     # If --youtube is provided, override audio_file and tsv_file.
     if youtube:
         click.echo("YouTube URL provided. Overriding all other options.")
-        yt_dlp_path = shutil.which("yt-dlp")
+        yt_dlp_path = _resolve_yt_dlp()
         if yt_dlp_path is None:
             click.echo(
-                "Error: 'yt-dlp' command not found in PATH. Please install yt-dlp.",
+                "Error: 'yt-dlp' command not found. Reinstall audio2anki to "
+                "restore the bundled copy.",
                 err=True,
             )
             return
@@ -219,7 +285,14 @@ def main(
                 "--extract-audio",
                 "--audio-format",
                 "mp3",
+                # Allow yt-dlp to fetch the EJS challenge solver script from
+                # GitHub on first use (cached afterward). Without this the JS
+                # runtime alone is insufficient to solve YouTube's n-challenge.
+                "--remote-components",
+                "ejs:github",
             ]
+            if ffmpeg_path:
+                cmd.extend(["--ffmpeg-location", ffmpeg_path])
             if deno_path:
                 cmd.extend(["--js-runtimes", f"deno:{deno_path}"])
             if browser:
@@ -352,10 +425,11 @@ def main(
                 click.echo(
                     "Generating transcript with Whisper. This may take a while...."
                 )
-                whisper_cmd = shutil.which("whisper")
+                whisper_cmd = _resolve_whisper()
                 if whisper_cmd is None:
                     click.echo(
-                        "Error: 'whisper' command not found in PATH. Please install Whisper or adjust your PATH.",
+                        "Error: 'whisper' command not found. Reinstall with the "
+                        "[whisper] extra: `uv tool install \".[whisper]\"`.",
                         err=True,
                     )
                     return
