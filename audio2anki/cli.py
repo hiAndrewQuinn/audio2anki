@@ -10,6 +10,7 @@ import stat
 import subprocess
 import shutil
 import sys
+import urllib.error
 import urllib.request
 import warnings
 import zipfile
@@ -135,7 +136,17 @@ def _ensure_deno():
     )
     zip_path = cache_dir / asset
     try:
-        urllib.request.urlretrieve(url, zip_path)
+        try:
+            urllib.request.urlretrieve(url, zip_path)
+        except (urllib.error.URLError, OSError) as e:
+            click.echo(
+                f"Error: failed to download Deno from {url} ({e}). "
+                "If you're behind a corporate proxy or firewall, set HTTPS_PROXY "
+                "or download deno manually from https://deno.land/ and place it "
+                f"at {deno_path}.",
+                err=True,
+            )
+            return None
         with zipfile.ZipFile(zip_path) as z:
             z.extractall(cache_dir)
     finally:

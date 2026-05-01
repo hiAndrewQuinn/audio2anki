@@ -18,6 +18,14 @@ That's it. `audio2anki` is now on your `$PATH` from any directory and bundles **
 
 Bundled binaries are preferred over any system installs of the same tools, so behavior stays consistent across machines.
 
+### Windows
+
+The same install command works. A few first-time gotchas:
+
+- If `audio2anki` isn't recognized after install, run `uv tool update-shell` (or restart your shell) so `uv`'s tool directory ends up on `PATH`.
+- First YouTube run downloads ~85 MB total (ffmpeg ~50 MB + deno ~35 MB) into `%LOCALAPPDATA%`. Windows Defender / SmartScreen occasionally flag fresh GitHub-release binaries — if a subprocess fails with a missing-file error right after install, allow the binary in your AV settings.
+- Behind a corporate proxy, set `HTTPS_PROXY` before the first YouTube run so the Deno download can reach GitHub.
+
 ## Use
 
 ```bash
