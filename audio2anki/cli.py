@@ -666,12 +666,11 @@ def main(
     click.echo()
     click.secho(f"Done! Anki deck written to:\n  {abs_output}", fg="green", bold=True)
     click.secho(
-        "\nTo import: open Anki, then File > Import (Ctrl+I / Cmd+I) and select "
-        "the .apkg above. On most systems double-clicking the file also works.",
+        "\nTo import: open Anki, then File > Import (Ctrl+Shift+I / Cmd+I) and select the .apkg above. On most systems double-clicking the file also works.",
         fg="green",
     )
     click.secho(
-        "\nThanks for using audio2anki, by @hiAndrewQuinn!",
+        "\Thank you for using https://github.com/hiAndrewQuinn/audio2anki , by @hiAndrewQuinn who blogs at https://andrew-quinn.me/ !",
         fg="green",
     )
 
