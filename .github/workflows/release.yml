@@ -1,0 +1,108 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Optional tag-style label for the artifact (e.g. v0.2.0-test). Leave blank to use the commit SHA."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    name: Build Windows GUI
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flet build tooling
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install "flet[desktop]>=0.84" flet-cli
+
+      - name: Show Flutter & Flet versions
+        shell: bash
+        run: |
+          flutter --version
+          flet --version
+
+      - name: Build Windows GUI bundle
+        shell: bash
+        run: |
+          flet build windows \
+            --verbose \
+            --yes \
+            --no-rich-output \
+            --skip-flutter-doctor \
+            --product audio2anki \
+            --project audio2anki
+
+      - name: Show build output tree
+        shell: pwsh
+        run: |
+          if (Test-Path build/windows) {
+            Get-ChildItem -Path build/windows -Recurse |
+              Select-Object FullName, Length |
+              Format-Table -AutoSize
+          } else {
+            Write-Error "build/windows directory not found"
+            exit 1
+          }
+
+      - name: Determine artifact name
+        id: name
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            label="${GITHUB_REF#refs/tags/}"
+          elif [[ -n "${{ inputs.tag }}" ]]; then
+            label="${{ inputs.tag }}"
+          else
+            label="$(git rev-parse --short HEAD)"
+          fi
+          echo "label=${label}" >> "$GITHUB_OUTPUT"
+          echo "zip=audio2anki-gui-${label}-windows-x64.zip" >> "$GITHUB_OUTPUT"
+
+      - name: Zip Windows bundle
+        shell: pwsh
+        run: |
+          $zip = "${{ steps.name.outputs.zip }}"
+          Compress-Archive -Path build/windows/* -DestinationPath $zip -Force
+          Get-Item $zip | Format-List Name, Length
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.name.outputs.zip }}
+          path: ${{ steps.name.outputs.zip }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create draft GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.name.outputs.zip }}
+          generate_release_notes: true
+          draft: true
+          fail_on_unmatched_files: true

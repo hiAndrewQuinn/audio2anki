@@ -33,3 +33,35 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["audio2anki"]
+
+[tool.flet]
+org = "com.hiandrewquinn"
+product = "audio2anki"
+company = "hiAndrewQuinn"
+copyright = "Andrew Quinn — Unlicense"
+
+[tool.flet.app]
+module = "gui_main"
+exclude = [
+    "venv",
+    "build",
+    "dist",
+    "clips",
+    "transcripts",
+    "youtube",
+    "*.apkg",
+    ".github",
+    ".git",
+    "Dockerfile",
+    "uv.lock",
+    "main.py",
+]
+
+[tool.flet.windows]
+dependencies = ["openai-whisper"]
+
+[tool.flet.macos]
+dependencies = ["openai-whisper"]
+
+[tool.flet.linux]
+dependencies = ["openai-whisper"]
