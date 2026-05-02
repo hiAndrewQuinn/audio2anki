@@ -97,6 +97,33 @@ audio2anki --cookies ./cookies.txt        'https://www.youtube.com/watch?v=...'
 
 The Flet GUI (`audio2anki-gui`) exposes the same control as a "Cookies (for YouTube auth)" dropdown with browser shortcuts and a `cookies.txt` file picker. Setting `BROWSER=firefox` in a `.env` file still works as a fallback if you prefer env-var config.
 
+### When `--cookies-from-browser` doesn't work
+
+`--cookies-from-browser` reads the browser's cookie database directly, which has surprisingly many failure modes — especially on Linux, where Chrome's auth cookies are encrypted with a key in the OS keyring. If you see `Sign in to confirm you're not a bot` even after passing cookies, check the log for warnings like `cannot decrypt v11 cookies: no key found` or `Extracted 204 cookies (2110 could not be decrypted)`. That means yt-dlp got the cookie file but couldn't read the auth cookies — it's a keyring/lock issue, not a missing-cookies one.
+
+Things to try, in order:
+
+1. **Quit the browser fully** and rerun. yt-dlp can't always read the cookie database while the browser holds it open.
+2. **Make sure your keyring is unlocked.** On Linux, `gnome-keyring` or `kwallet` needs to be unlocked in your current login session. Logging out and back in often fixes it.
+3. **Confirm you're actually signed in.** Open YouTube in the browser and confirm you see your avatar in the top right.
+4. **Try the other major browser.** If `chrome` fails, try `firefox` (or vice-versa).
+5. **Bypass the keyring entirely with the bundled extractor** — covered next.
+
+### `audio2anki-extract-cookies firefox`
+
+Bundled alongside the CLI is a small stdlib-only cookie extractor for **Firefox specifically**:
+
+```bash
+audio2anki-extract-cookies firefox -o cookies.txt
+audio2anki --cookies cookies.txt 'https://www.youtube.com/watch?v=...'
+```
+
+By default it pulls only `youtube.com`/`google.com`/`googlevideo.com` cookies (pass `--all-domains` to export everything). Crucially, it **reports whether it actually found YouTube auth cookies** (`SID`, `SAPISID`, `HSID`, `LOGIN_INFO`, etc.) — if it didn't, you aren't signed in to YouTube in Firefox and it tells you so directly.
+
+Why Firefox-only: Firefox stores cookies in a plain SQLite database, so this command needs nothing beyond the Python stdlib and has no extra supply-chain surface. Chrome-family browsers encrypt cookie values with a key in the OS keychain; replicating that path would just duplicate (and shift the trust burden of) what `yt-dlp --cookies-from-browser chrome` already does.
+
+If you don't have or use Firefox, export `cookies.txt` from your browser of choice with an extension like [cookies.txt LOCALLY](https://addons.mozilla.org/en-US/firefox/addon/cookies-txt-one-click/) and pass the resulting file via `--cookies`.
+
 ## Develop
 
 ```bash

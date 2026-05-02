@@ -26,6 +26,7 @@ whisper = ["openai-whisper"]
 [project.scripts]
 audio2anki = "audio2anki.cli:main"
 audio2anki-gui = "audio2anki.gui:main"
+audio2anki-extract-cookies = "audio2anki.extract_cookies:main"
 
 [build-system]
 requires = ["hatchling"]

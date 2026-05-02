@@ -356,35 +356,140 @@ def main(
                 )
 
         if not download_succeeded:
+            quoted_url = shlex.quote(youtube)
             click.echo(
                 "Error: Downloading MP3 from YouTube failed with every player client.",
                 err=True,
             )
+            click.echo("", err=True)
             if not (cookies_file or cookies_browser):
-                quoted_url = shlex.quote(youtube)
-                click.echo("", err=True)
                 click.echo(
                     "YouTube often blocks downloads with 'Sign in to confirm "
-                    "you're not a bot' when no cookies are supplied. Try one of:",
+                    "you're not a bot' when no cookies are supplied. Try, in "
+                    "order:",
                     err=True,
                 )
                 click.echo("", err=True)
-                click.echo(f"  audio2anki --cookies-from-browser firefox {quoted_url}", err=True)
-                click.echo(f"  audio2anki --cookies-from-browser chrome   {quoted_url}", err=True)
-                click.echo(f"  audio2anki --cookies <path/to/cookies.txt> {quoted_url}", err=True)
+                click.echo("  1. Pass cookies from a logged-in browser:", err=True)
+                click.echo("", err=True)
+                click.echo(f"       audio2anki --cookies-from-browser firefox {quoted_url}", err=True)
+                click.echo(f"       audio2anki --cookies-from-browser chrome   {quoted_url}", err=True)
                 click.echo("", err=True)
                 click.echo(
-                    "yt-dlp also accepts chromium, brave, edge, safari, opera, "
-                    "vivaldi. See https://github.com/yt-dlp/yt-dlp/wiki/FAQ"
-                    "#how-do-i-pass-cookies-to-yt-dlp",
+                    "     yt-dlp also accepts chromium, brave, edge, safari, "
+                    "opera, vivaldi.",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo(
+                    "  2. If those fail, generate a cookies.txt from Firefox "
+                    "and pass it explicitly:",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo("       audio2anki-extract-cookies firefox -o cookies.txt", err=True)
+                click.echo(f"       audio2anki --cookies cookies.txt {quoted_url}", err=True)
+                click.echo("", err=True)
+                click.echo(
+                    "See https://github.com/yt-dlp/yt-dlp/wiki/FAQ"
+                    "#how-do-i-pass-cookies-to-yt-dlp for more.",
+                    err=True,
+                )
+            elif cookies_file:
+                click.echo(
+                    f"A cookies.txt file was supplied via --cookies "
+                    f"({cookies_file}), but YouTube still rejected the request. "
+                    "Things to try, in order:",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo(
+                    "  1. Make sure the file actually contains YouTube auth "
+                    "cookies. Open it and look for cookie names like SID, "
+                    "SAPISID, HSID, or LOGIN_INFO on .youtube.com / "
+                    ".google.com hosts. If they're missing, you weren't "
+                    "signed in to YouTube when the cookies were exported.",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo(
+                    "  2. Cookies expire. YouTube auth cookies typically "
+                    "last weeks at most — if you exported this file a while "
+                    "ago, regenerate it.",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo(
+                    "  3. Regenerate cleanly with the bundled extractor "
+                    "(which also reports whether it found auth cookies):",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo("       audio2anki-extract-cookies firefox -o cookies.txt", err=True)
+                click.echo(f"       audio2anki --cookies cookies.txt {quoted_url}", err=True)
+                click.echo("", err=True)
+                click.echo(
+                    "  4. The video may genuinely be region-locked or "
+                    "private. Open the URL in a logged-out browser to "
+                    "verify it's reachable at all.",
                     err=True,
                 )
             else:
                 click.echo(
-                    "Cookies were supplied but the download still failed — the URL "
-                    "may be region-locked, the video may be private, or YouTube may "
-                    "have broken every player client at once. Rerun yt-dlp manually "
-                    "with --list-formats to diagnose.",
+                    f"Cookies were extracted from {cookies_browser} via "
+                    "--cookies-from-browser, but YouTube still rejected the "
+                    "request. Things to try, in order:",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo(
+                    f"  1. Quit {cookies_browser} fully and rerun. yt-dlp "
+                    "can't always read the cookie database while the "
+                    "browser holds it open.",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo(
+                    "  2. Look for warnings in the log above like "
+                    "'cannot decrypt v11 cookies: no key found' or "
+                    "'Extracted N cookies (M could not be decrypted)' "
+                    "where M is much larger than N. That means yt-dlp got "
+                    "the cookie file but couldn't decrypt the auth "
+                    "cookies — which is a keyring problem, not a "
+                    "missing-cookies one. On Linux, make sure your keyring "
+                    "(gnome-keyring or kwallet) is unlocked; logging out "
+                    "and back in often fixes it.",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo(
+                    f"  3. Make sure you're actually signed in to YouTube "
+                    f"in {cookies_browser}. Open it, visit "
+                    "https://www.youtube.com/, and confirm you see your "
+                    "avatar in the top right.",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo(
+                    "  4. Try the other major browser. If "
+                    "--cookies-from-browser chrome failed, try firefox "
+                    "(or vice-versa).",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo(
+                    "  5. Bypass yt-dlp's browser-cookie extraction "
+                    "entirely with the bundled Firefox extractor:",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo("       audio2anki-extract-cookies firefox -o cookies.txt", err=True)
+                click.echo(f"       audio2anki --cookies cookies.txt {quoted_url}", err=True)
+                click.echo("", err=True)
+                click.echo(
+                    "     It uses Python stdlib only (no keyring access "
+                    "needed) and will tell you whether it actually found "
+                    "YouTube auth cookies.",
                     err=True,
                 )
             return
