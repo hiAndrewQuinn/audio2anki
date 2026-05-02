@@ -64,10 +64,10 @@ def main(page=None):
 
     file_picker = ft.FilePicker()
     folder_picker = ft.FilePicker()
-    page.overlay.extend([file_picker, folder_picker])
+    page.services = [file_picker, folder_picker]
 
-    def on_browse_file(e):
-        files = file_picker.pick_files(allow_multiple=False)
+    async def on_browse_file(e):
+        files = await file_picker.pick_files(allow_multiple=False)
         if files:
             source_input.value = files[0].path
             page.update()
@@ -94,8 +94,8 @@ def main(page=None):
         value=str(DEFAULT_OUTPUT_DIR),
         expand=True,
     )
-    def on_browse_folder(e):
-        path = folder_picker.get_directory_path()
+    async def on_browse_folder(e):
+        path = await folder_picker.get_directory_path()
         if path:
             output_dir_input.value = path
             state["output_dir"] = Path(path)

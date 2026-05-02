@@ -61,6 +61,12 @@ The same `uv tool install` line gives you both `audio2anki` and `audio2anki-gui`
 
 Built with [Flet](https://flet.dev/), which bundles its own desktop runtime (`flet-desktop`) — no system Qt/GTK/etc. needed.
 
+On Linux, the **Browse…** / **Choose…** buttons shell out to [Zenity](https://help.gnome.org/users/zenity/stable/) for the native file/folder picker. Install it once if you want those buttons to work (you can always paste paths into the text fields instead):
+
+```bash
+sudo apt install zenity   # Debian/Ubuntu
+```
+
 ## Options
 
 | Flag | What it does |
