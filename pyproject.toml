@@ -8,6 +8,7 @@ license = { file = "LICENSE" }
 authors = [{ name = "Andrew Quinn", email = "andrew.quinn@tutanota.com" }]
 dependencies = [
     "click>=8.1",
+    "flet>=0.28",
     "pydub>=0.25",
     "tqdm>=4.66",
     "genanki>=0.13",
@@ -24,6 +25,7 @@ whisper = ["openai-whisper"]
 
 [project.scripts]
 audio2anki = "audio2anki.cli:main"
+audio2anki-gui = "audio2anki.gui:main"
 
 [build-system]
 requires = ["hatchling"]
