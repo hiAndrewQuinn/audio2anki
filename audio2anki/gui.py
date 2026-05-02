@@ -22,6 +22,19 @@ SPEEDS = [
     ("Slower (0.5x)", "--slower"),
     ("Slowest (0.25x)", "--slowest"),
 ]
+COOKIE_BROWSERS = [
+    "None",
+    "Firefox",
+    "Chrome",
+    "Chromium",
+    "Brave",
+    "Edge",
+    "Safari",
+    "Opera",
+    "Vivaldi",
+    "From cookies.txt file…",
+]
+COOKIE_FILE_CHOICE = "From cookies.txt file…"
 DEFAULT_OUTPUT_DIR = Path.home() / "audio2anki-output"
 
 
@@ -88,6 +101,46 @@ def main(page=None):
     )
 
     deck_name_input = ft.TextField(label="Deck name (optional)", expand=True)
+
+    cookies_dd = ft.Dropdown(
+        label="Cookies (for YouTube auth)",
+        value="None",
+        options=[ft.dropdown.Option(b) for b in COOKIE_BROWSERS],
+        width=260,
+    )
+    cookies_file_input = ft.TextField(
+        label="Path to cookies.txt",
+        expand=True,
+        visible=False,
+    )
+
+    async def on_browse_cookies(e):
+        files = await file_picker.pick_files(
+            allow_multiple=False,
+            allowed_extensions=["txt"],
+        )
+        if files:
+            cookies_file_input.value = files[0].path
+            page.update()
+
+    cookies_browse_btn = ft.ElevatedButton(
+        "Browse…",
+        on_click=on_browse_cookies,
+        visible=False,
+    )
+    cookies_file_row = ft.Row(
+        [cookies_file_input, cookies_browse_btn],
+        visible=False,
+    )
+
+    def on_cookies_change(e):
+        use_file = cookies_dd.value == COOKIE_FILE_CHOICE
+        cookies_file_row.visible = use_file
+        cookies_file_input.visible = use_file
+        cookies_browse_btn.visible = use_file
+        page.update()
+
+    cookies_dd.on_change = on_cookies_change
 
     output_dir_input = ft.TextField(
         label="Output folder",
@@ -167,6 +220,20 @@ def main(page=None):
         if deck_name_input.value and deck_name_input.value.strip():
             args += ["--deck-name", deck_name_input.value.strip()]
 
+        choice = cookies_dd.value
+        if choice == COOKIE_FILE_CHOICE:
+            path = (cookies_file_input.value or "").strip()
+            if not path:
+                append_log(
+                    "ERROR: 'From cookies.txt file…' selected but no file "
+                    "chosen. Pick a cookies.txt file or change the dropdown "
+                    "to 'None'."
+                )
+                return
+            args += ["--cookies", path]
+        elif choice and choice != "None":
+            args += ["--cookies-from-browser", choice.lower()]
+
         log_view.controls.clear()
         append_log(f"$ {' '.join(args)}")
         append_log(f"  (cwd: {out_dir})")
@@ -219,6 +286,8 @@ def main(page=None):
         ft.Row([source_input, browse_btn]),
         ft.Row([model_dd, speed_dd]),
         deck_name_input,
+        ft.Row([cookies_dd]),
+        cookies_file_row,
         ft.Row([output_dir_input, choose_folder_btn]),
         ft.Row([run_btn, cancel_btn, spinner, status_text]),
         ft.Container(content=log_container, expand=True, height=300),

@@ -79,14 +79,23 @@ sudo apt install zenity   # Debian/Ubuntu
 | `--transcripts-dir PATH` | Where to look for / save transcripts (default: `transcripts`) |
 | `--output-apkg PATH` | Output filename (default: auto-derived from the audio filename) |
 | `--youtube URL` | Explicit YouTube URL flag (positional URL works too) |
+| `--cookies-from-browser BROWSER` | Pass cookies from a local browser to `yt-dlp` (e.g. `firefox`, `chrome`, `chromium`, `brave`, `edge`, `safari`). Use this when YouTube responds with "sign in to confirm you're not a bot". |
+| `--cookies PATH` | Path to a Netscape-format `cookies.txt` file. Useful if your browser cookies aren't directly readable. |
 
 ## YouTube notes
 
 YouTube uses a JavaScript "n-challenge" signature scheme that `yt-dlp` needs a JS runtime to solve. audio2anki **auto-downloads [Deno](https://deno.land/) on first YouTube use** (~35MB, cached at `~/.cache/audio2anki/deno`) so this just works — no manual install. If you already have `deno` on `$PATH`, that one is used instead.
 
-Beyond that, audio2anki tries the default player client first and then falls back through `tv → ios → web_safari → android_vr → mweb` if YouTube has broken the default extraction path for that client. If every client fails, it prints `--list-formats` output for diagnosis.
+Beyond that, audio2anki tries the default player client first and then falls back through `tv → ios → web_safari → android_vr → mweb` if YouTube has broken the default extraction path for that client.
 
-For age-gated or subscription videos, set `BROWSER=firefox` (or `chrome`, `chromium`, etc.) in a `.env` file in your working directory. `yt-dlp` will pull cookies from that browser.
+For age-gated, subscription, or bot-checked videos, pass cookies to `yt-dlp` with one of:
+
+```bash
+audio2anki --cookies-from-browser firefox 'https://www.youtube.com/watch?v=...'
+audio2anki --cookies ./cookies.txt        'https://www.youtube.com/watch?v=...'
+```
+
+The Flet GUI (`audio2anki-gui`) exposes the same control as a "Cookies (for YouTube auth)" dropdown with browser shortcuts and a `cookies.txt` file picker. Setting `BROWSER=firefox` in a `.env` file still works as a fallback if you prefer env-var config.
 
 ## Develop
 

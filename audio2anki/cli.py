@@ -6,6 +6,7 @@ import os
 import platform
 import random
 import hashlib
+import shlex
 import stat
 import subprocess
 import shutil
@@ -194,6 +195,22 @@ def _ensure_deno():
     default=None,
     help="YouTube URL to download MP3 from. Overrides all other options.",
 )
+@click.option(
+    "--cookies-from-browser",
+    "cookies_from_browser",
+    default=None,
+    metavar="BROWSER[:PROFILE]",
+    help="Pass cookies from a local browser to yt-dlp (e.g. firefox, chrome, "
+    "chromium, brave, edge, safari). Use this when YouTube asks you to "
+    "'sign in to confirm you're not a bot'.",
+)
+@click.option(
+    "--cookies",
+    "cookies_file",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False),
+    help="Path to a Netscape-format cookies.txt file to pass to yt-dlp.",
+)
 # Added options for playback speed adjustments.
 @click.option(
     "--slow", is_flag=True, default=False, help="Export audio at 0.75x speed."
@@ -214,6 +231,8 @@ def main(
     whisper,
     whisper_model,
     youtube,
+    cookies_from_browser,
+    cookies_file,
     slow,
     slower,
     slowest,
@@ -271,7 +290,10 @@ def main(
 
         youtube_dir = "youtube"
         os.makedirs(youtube_dir, exist_ok=True)
-        browser = os.getenv("BROWSER")
+        # Precedence: explicit flag > BROWSER env var (legacy). $BROWSER on
+        # Linux is conventionally a path/command; yt-dlp wants a bare name
+        # like "firefox", so the env-var fallback is best-effort.
+        cookies_browser = cookies_from_browser or os.getenv("BROWSER")
 
         deno_path = _ensure_deno()
         if deno_path is None:
@@ -306,8 +328,10 @@ def main(
                 cmd.extend(["--ffmpeg-location", ffmpeg_path])
             if deno_path:
                 cmd.extend(["--js-runtimes", f"deno:{deno_path}"])
-            if browser:
-                cmd.extend(["--cookies-from-browser", browser])
+            if cookies_file:
+                cmd.extend(["--cookies", cookies_file])
+            elif cookies_browser:
+                cmd.extend(["--cookies-from-browser", cookies_browser])
             if player_client:
                 cmd.extend(
                     ["--extractor-args", f"youtube:player_client={player_client}"]
@@ -336,17 +360,33 @@ def main(
                 "Error: Downloading MP3 from YouTube failed with every player client.",
                 err=True,
             )
-            click.echo(
-                "Listing available formats below for diagnosis (rerun with a different URL or install an EJS solver if only images appear):",
-                err=True,
-            )
-            list_cmd = [yt_dlp_path, "--list-formats"]
-            if deno_path:
-                list_cmd.extend(["--js-runtimes", f"deno:{deno_path}"])
-            if browser:
-                list_cmd.extend(["--cookies-from-browser", browser])
-            list_cmd.append(youtube)
-            subprocess.run(list_cmd, check=False)
+            if not (cookies_file or cookies_browser):
+                quoted_url = shlex.quote(youtube)
+                click.echo("", err=True)
+                click.echo(
+                    "YouTube often blocks downloads with 'Sign in to confirm "
+                    "you're not a bot' when no cookies are supplied. Try one of:",
+                    err=True,
+                )
+                click.echo("", err=True)
+                click.echo(f"  audio2anki --cookies-from-browser firefox {quoted_url}", err=True)
+                click.echo(f"  audio2anki --cookies-from-browser chrome   {quoted_url}", err=True)
+                click.echo(f"  audio2anki --cookies <path/to/cookies.txt> {quoted_url}", err=True)
+                click.echo("", err=True)
+                click.echo(
+                    "yt-dlp also accepts chromium, brave, edge, safari, opera, "
+                    "vivaldi. See https://github.com/yt-dlp/yt-dlp/wiki/FAQ"
+                    "#how-do-i-pass-cookies-to-yt-dlp",
+                    err=True,
+                )
+            else:
+                click.echo(
+                    "Cookies were supplied but the download still failed — the URL "
+                    "may be region-locked, the video may be private, or YouTube may "
+                    "have broken every player client at once. Rerun yt-dlp manually "
+                    "with --list-formats to diagnose.",
+                    err=True,
+                )
             return
         click.echo("Download complete.")
         mp3_files = [
