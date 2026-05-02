@@ -19,6 +19,12 @@ jobs:
     name: Build Windows GUI
     runs-on: windows-latest
     timeout-minutes: 60
+    env:
+      # Force Python into UTF-8 mode so `rich` (used by `flet build` for its
+      # progress display) doesn't crash on cp1252 when emitting box-drawing or
+      # bullet characters like U+25CF. Without this the build dies in <1s.
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: "utf-8"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
