@@ -59,7 +59,7 @@ audio2anki-gui
 
 The same `uv tool install` line gives you both `audio2anki` and `audio2anki-gui` — no separate install. The GUI is a thin wrapper that runs the CLI as a subprocess and streams its output into a log pane, so anything the CLI does, the GUI does.
 
-Built with [Flet](https://flet.dev/), which bundles its own desktop runtime — no system Qt/GTK/etc. needed. On Linux the bundled runtime is `flet-desktop-light` and has no media playback (the GUI doesn't preview audio anyway, so this doesn't matter in practice).
+Built with [Flet](https://flet.dev/), which bundles its own desktop runtime (`flet-desktop`) — no system Qt/GTK/etc. needed.
 
 ## Options
 

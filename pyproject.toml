@@ -8,7 +8,7 @@ license = { file = "LICENSE" }
 authors = [{ name = "Andrew Quinn", email = "andrew.quinn@tutanota.com" }]
 dependencies = [
     "click>=8.1",
-    "flet>=0.28",
+    "flet[desktop]>=0.84",
     "pydub>=0.25",
     "tqdm>=4.66",
     "genanki>=0.13",
